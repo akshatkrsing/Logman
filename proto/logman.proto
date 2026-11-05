@@ -1,0 +1,42 @@
+
+syntax = "proto3";
+
+package logman;
+
+option go_package = "github.com/akshatkrsing/logman/gen/logmanpb;logmanpb";
+
+service LogService {
+  rpc SendLog (LogRequest) returns (LogResponse);
+  rpc GetLogs (GetLogsRequest) returns (GetLogsResponse);
+}
+
+message LogRequest {
+  string request_id = 1;
+  string message = 2;
+  string level = 3;
+  string service_name = 4;
+  int64 timestamp = 5;
+}
+
+message LogResponse {
+  bool success = 1;
+  string message = 2;
+  string log_id = 3;
+}
+
+message GetLogsRequest {
+  int32 limit = 1;
+}
+
+message LogEntry {
+  string log_id = 1;
+  string request_id = 2;
+  string message = 3;
+  string level = 4;
+  string service_name = 5;
+  int64 timestamp = 6;
+}
+
+message GetLogsResponse {
+  repeated LogEntry logs = 1;
+}
