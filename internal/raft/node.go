@@ -88,3 +88,29 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 
 	return node, nil
 }
+
+
+func (n *Node) Join(nodeID, raftAddress string) error {
+	future := n.Raft.AddVoter(
+		hashiraft.ServerID(nodeID),
+		hashiraft.ServerAddress(raftAddress),
+		0,
+		10*time.Second,
+	)
+
+	return future.Error()
+}
+
+
+func (n *Node) AddVoter(nodeID, raftAddress string) error {
+    future := n.Raft.AddVoter(
+        hashiraft.ServerID(nodeID),
+        hashiraft.ServerAddress(raftAddress),
+        0,
+        10*time.Second,
+    )
+
+    return future.Error()
+}
+
+

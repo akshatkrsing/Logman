@@ -1,0 +1,8 @@
+
+node:
+  id: node3
+  grpc_port: "50053"
+  raft_address: "127.0.0.1:6003"
+  data_dir: "./data/node3"
+  bootstrap: false
+  leader_address: "127.0.0.1:6001"

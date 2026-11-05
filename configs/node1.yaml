@@ -1,0 +1,7 @@
+
+node:
+  id: node1
+  grpc_port: "50051"
+  raft_address: "127.0.0.1:6001"
+  data_dir: "./data/node1"
+  bootstrap: true
