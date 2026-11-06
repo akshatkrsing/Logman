@@ -42,6 +42,10 @@ func (s *Server) SendLog(
 		return nil, status.Error(codes.InvalidArgument, "log message cannot be empty")
 	}
 
+	if s.Node == nil || s.Node.Raft == nil || s.Node.FSM == nil {
+		return nil, status.Error(codes.Unavailable, "Raft node is not initialized")
+	}
+
 	if s.Node.Raft.State() != hashiraft.Leader {
 		return nil, status.Error(
 			codes.FailedPrecondition,
@@ -49,47 +53,56 @@ func (s *Server) SendLog(
 		)
 	}
 
-	logID := req.GetRequestId()
-	if logID == "" {
-		logID = fmt.Sprintf("log-%d", time.Now().UnixNano())
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
 	}
 
+	requestID := strings.TrimSpace(req.GetRequestId())
+
+	if requestID == "" {
+		requestID = fmt.Sprintf("log-%d", time.Now().UnixNano())
+	}
+
+	logID := requestID
+
 	timestamp := req.GetTimestamp()
-	if timestamp == 0 {
+	if timestamp <= 0 {
 		timestamp = time.Now().Unix()
 	}
 
 	entry := raftnode.LogEntry{
 		ID:          logID,
-		RequestID:   req.GetRequestId(),
-		Message:     req.GetMessage(),
-		Level:       req.GetLevel(),
-		ServiceName: req.GetServiceName(),
+		RequestID:   requestID,
+		Message:     strings.TrimSpace(req.GetMessage()),
+		Level:       strings.ToUpper(strings.TrimSpace(req.GetLevel())),
+		ServiceName: strings.TrimSpace(req.GetServiceName()),
 		Timestamp:   timestamp,
 		Metadata:    req.GetMetadata(),
 	}
 
 	data, err := json.Marshal(entry)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to serialize log")
+		return nil, status.Error(codes.Internal, "failed to serialize log entry")
 	}
 
 	future := s.Node.Raft.Apply(data, 5*time.Second)
 
 	if err := future.Error(); err != nil {
-		return nil, status.Errorf(codes.Unavailable, "Raft write failed: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to commit log: %v", err)
 	}
 
-	if result, ok := future.Response().(error); ok {
-		return nil, status.Errorf(codes.Internal, "FSM apply failed: %v", result)
+	appliedEntry, ok := future.Response().(raftnode.LogEntry)
+	if !ok {
+		return nil, status.Error(
+			codes.Internal,
+			"unexpected Raft apply response",
+		)
 	}
-
-	log.Printf("Log committed through Raft: %s", logID)
 
 	return &pb.LogResponse{
 		Success: true,
-		Message: "Log committed successfully",
-		LogId:   logID,
+		Message: "Log accepted successfully",
+		LogId:   appliedEntry.ID,
 	}, nil
 }
 
@@ -274,15 +287,26 @@ func (s *Server) BatchSendLogs(
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
 
+	if s.Node == nil || s.Node.Raft == nil || s.Node.FSM == nil {
+		return nil, status.Error(codes.Unavailable, "Raft node is not initialized")
+	}
+
+	if s.Node.Raft.State() != hashiraft.Leader {
+		return nil, status.Error(
+			codes.FailedPrecondition,
+			"batch writes must be sent to the Raft leader",
+		)
+	}
+
+	logRequests := req.GetLogs()
+
 	const maxBatchSize = 1000
 
-	logs := req.GetLogs()
-
-	if len(logs) == 0 {
+	if len(logRequests) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "batch cannot be empty")
 	}
 
-	if len(logs) > maxBatchSize {
+	if len(logRequests) > maxBatchSize {
 		return nil, status.Errorf(
 			codes.InvalidArgument,
 			"batch size exceeds maximum allowed size of %d",
@@ -290,33 +314,94 @@ func (s *Server) BatchSendLogs(
 		)
 	}
 
-	response := &pb.BatchLogResponse{
-		Results: make([]*pb.LogResponse, 0, len(logs)),
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
 	}
 
-	for _, logRequest := range logs {
-		if err := ctx.Err(); err != nil {
-			return nil, status.FromContextError(err).Err()
+	entries := make([]raftnode.LogEntry, 0, len(logRequests))
+
+	for i, logRequest := range logRequests {
+		if logRequest == nil {
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"log at index %d cannot be nil",
+				i,
+			)
 		}
 
-		result, err := s.SendLog(ctx, logRequest)
+		message := strings.TrimSpace(logRequest.GetMessage())
 
-		if err != nil {
-			response.Results = append(response.Results, &pb.LogResponse{
-				Success: false,
-				Message: err.Error(),
-			})
-			response.RejectedCount++
-			continue
+		if message == "" {
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"log message at index %d cannot be empty",
+				i,
+			)
 		}
 
-		response.Results = append(response.Results, result)
+		requestID := strings.TrimSpace(logRequest.GetRequestId())
 
-		if result.GetSuccess() {
-			response.AcceptedCount++
-		} else {
-			response.RejectedCount++
+		if requestID == "" {
+			requestID = fmt.Sprintf("log-%d-%d", time.Now().UnixNano(), i)
 		}
+
+		timestamp := logRequest.GetTimestamp()
+
+		if timestamp <= 0 {
+			timestamp = time.Now().Unix()
+		}
+
+		entries = append(entries, raftnode.LogEntry{
+			ID:          requestID,
+			RequestID:   requestID,
+			Message:     message,
+			Level:       strings.ToUpper(strings.TrimSpace(logRequest.GetLevel())),
+			ServiceName: strings.TrimSpace(logRequest.GetServiceName()),
+			Timestamp:   timestamp,
+			Metadata:    logRequest.GetMetadata(),
+		})
+	}
+
+	command := raftnode.BatchCommand{
+		Type:    "batch",
+		Entries: entries,
+	}
+
+	data, err := json.Marshal(command)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to serialize batch")
+	}
+
+	future := s.Node.Raft.Apply(data, 10*time.Second)
+
+	if err := future.Error(); err != nil {
+		return nil, status.Errorf(
+			codes.Internal,
+			"failed to commit batch: %v",
+			err,
+		)
+	}
+
+	appliedEntries, ok := future.Response().([]raftnode.LogEntry)
+	if !ok {
+		return nil, status.Error(
+			codes.Internal,
+			"unexpected Raft batch apply response",
+		)
+	}
+
+	response := &pb.BatchLogResponse{
+		Results:       make([]*pb.LogResponse, 0, len(appliedEntries)),
+		AcceptedCount: int32(len(appliedEntries)),
+		RejectedCount: 0,
+	}
+
+	for _, entry := range appliedEntries {
+		response.Results = append(response.Results, &pb.LogResponse{
+			Success: true,
+			Message: "Log accepted successfully",
+			LogId:   entry.ID,
+		})
 	}
 
 	return response, nil

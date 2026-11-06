@@ -2,8 +2,8 @@ package raft
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +19,11 @@ type LogEntry struct {
 	ServiceName string            `json:"service_name"`
 	Timestamp   int64             `json:"timestamp"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+type BatchCommand struct {
+	Type    string     `json:"type"`
+	Entries []LogEntry `json:"entries"`
 }
 
 type MetadataKey struct {
@@ -47,7 +52,7 @@ type FSM struct {
 }
 
 func NewFSM(nodeID string) *FSM {
-	fsm := &FSM{
+	return &FSM{
 		logs:           make([]LogEntry, 0),
 		nodeID:         nodeID,
 		requestIDIndex: make(map[string]map[int]struct{}),
@@ -55,8 +60,6 @@ func NewFSM(nodeID string) *FSM {
 		serviceIndex:   make(map[string]map[int]struct{}),
 		metadataIndex:  make(map[MetadataKey]map[int]struct{}),
 	}
-
-	return fsm
 }
 
 func cloneLogEntry(entry LogEntry) LogEntry {
@@ -83,7 +86,11 @@ func cloneLogs(logs []LogEntry) []LogEntry {
 	return result
 }
 
-func addToIndex[K comparable](index map[K]map[int]struct{}, key K, position int) {
+func addToIndex[K comparable](
+	index map[K]map[int]struct{},
+	key K,
+	position int,
+) {
 	if _, exists := index[key]; !exists {
 		index[key] = make(map[int]struct{})
 	}
@@ -97,11 +104,19 @@ func (f *FSM) indexEntryLocked(entry LogEntry, position int) {
 	}
 
 	if entry.Level != "" {
-		addToIndex(f.levelIndex, strings.ToUpper(strings.TrimSpace(entry.Level)), position)
+		addToIndex(
+			f.levelIndex,
+			strings.ToUpper(strings.TrimSpace(entry.Level)),
+			position,
+		)
 	}
 
 	if entry.ServiceName != "" {
-		addToIndex(f.serviceIndex, strings.ToLower(strings.TrimSpace(entry.ServiceName)), position)
+		addToIndex(
+			f.serviceIndex,
+			strings.ToLower(strings.TrimSpace(entry.ServiceName)),
+			position,
+		)
 	}
 
 	for key, value := range entry.Metadata {
@@ -123,28 +138,56 @@ func (f *FSM) rebuildIndexesLocked() {
 	}
 }
 
-func (f *FSM) Apply(logEntry *hashiraft.Log) interface{} {
+func (f *FSM) Apply(log *hashiraft.Log) interface{} {
+	var command BatchCommand
+
+	if err := json.Unmarshal(log.Data, &command); err == nil && command.Type == "batch" {
+		if len(command.Entries) == 0 {
+			return fmt.Errorf("batch cannot be empty")
+		}
+
+		f.mu.Lock()
+		defer f.mu.Unlock()
+
+		results := make([]LogEntry, 0, len(command.Entries))
+
+		for _, entry := range command.Entries {
+			results = append(results, f.applyEntryLocked(entry))
+		}
+
+		return results
+	}
+
+	// Backward compatibility with previously committed single-log entries.
 	var entry LogEntry
 
-	if err := json.Unmarshal(logEntry.Data, &entry); err != nil {
-		return err
+	if err := json.Unmarshal(log.Data, &entry); err != nil {
+		return fmt.Errorf("unmarshal log entry: %w", err)
 	}
 
 	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	position := len(f.logs)
-	f.logs = append(f.logs, entry)
+	return f.applyEntryLocked(entry)
+}
+
+func (f *FSM) applyEntryLocked(entry LogEntry) LogEntry {
+	if entry.RequestID != "" {
+		if positions, exists := f.requestIDIndex[entry.RequestID]; exists {
+			for position := range positions {
+				if position >= 0 && position < len(f.logs) {
+					return cloneLogEntry(f.logs[position])
+				}
+			}
+		}
+	}
+
+	f.logs = append(f.logs, cloneLogEntry(entry))
+
+	position := len(f.logs) - 1
 	f.indexEntryLocked(entry, position)
 
-	f.mu.Unlock()
-
-	log.Printf(
-		"[FSM] Node: %s | Applied Log ID: %s",
-		f.nodeID,
-		entry.ID,
-	)
-
-	return nil
+	return cloneLogEntry(entry)
 }
 
 func (f *FSM) Snapshot() (hashiraft.FSMSnapshot, error) {
@@ -183,7 +226,6 @@ func (f *FSM) GetLogs() []LogEntry {
 
 // SearchLogs uses indexes to reduce the candidate set.
 // Results retain their original Raft application order.
-
 func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -195,8 +237,10 @@ func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
 	}
 
 	if query.Level != "" {
-		indexSets = append(indexSets,
-			f.levelIndex[strings.ToUpper(strings.TrimSpace(query.Level))])
+		indexSets = append(
+			indexSets,
+			f.levelIndex[strings.ToUpper(strings.TrimSpace(query.Level))],
+		)
 	}
 
 	if len(query.Levels) > 0 {
@@ -204,6 +248,7 @@ func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
 
 		for _, level := range query.Levels {
 			normalized := strings.ToUpper(strings.TrimSpace(level))
+
 			if normalized == "" {
 				continue
 			}
@@ -217,8 +262,10 @@ func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
 	}
 
 	if query.ServiceName != "" {
-		indexSets = append(indexSets,
-			f.serviceIndex[strings.ToLower(strings.TrimSpace(query.ServiceName))])
+		indexSets = append(
+			indexSets,
+			f.serviceIndex[strings.ToLower(strings.TrimSpace(query.ServiceName))],
+		)
 	}
 
 	for key, value := range query.Metadata {
@@ -260,7 +307,6 @@ func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
 		}
 	}
 
-	// Restore original Raft application order.
 	sort.Ints(matchedPositions)
 
 	result := make([]LogEntry, 0, len(matchedPositions))
