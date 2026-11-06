@@ -12,6 +12,7 @@ import (
 	pb "github.com/akshatkrsing/logman/gen/logmanpb"
 	raftnode "github.com/akshatkrsing/logman/internal/raft"
 
+	"github.com/akshatkrsing/logman/internal/observability"
 	hashiraft "github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +27,8 @@ const (
 
 type Server struct {
 	pb.UnimplementedLogServiceServer
-	Node *raftnode.Node
+	Node    *raftnode.Node
+	Metrics *observability.Metrics
 }
 
 func (s *Server) SendLog(
@@ -88,6 +90,10 @@ func (s *Server) SendLog(
 	future := s.Node.Raft.Apply(data, 5*time.Second)
 
 	if err := future.Error(); err != nil {
+		if s.Metrics != nil {
+			s.Metrics.RecordError()
+		}
+
 		return nil, status.Errorf(codes.Internal, "failed to commit log: %v", err)
 	}
 
@@ -97,6 +103,10 @@ func (s *Server) SendLog(
 			codes.Internal,
 			"unexpected Raft apply response",
 		)
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.RecordLogs(1)
 	}
 
 	return &pb.LogResponse{
@@ -252,6 +262,7 @@ func (s *Server) GetLogs(
 func StartGRPCServer(
 	port string,
 	node *raftnode.Node,
+	metrics ...*observability.Metrics,
 ) (*grpc.Server, error) {
 
 	listener, err := net.Listen("tcp", ":"+port)
@@ -261,10 +272,15 @@ func StartGRPCServer(
 
 	server := grpc.NewServer()
 
-	pb.RegisterLogServiceServer(server, &Server{
+	handler := &Server{
 		Node: node,
-	})
+	}
 
+	if len(metrics) > 0 {
+		handler.Metrics = metrics[0]
+	}
+
+	pb.RegisterLogServiceServer(server, handler)
 	reflection.Register(server)
 
 	log.Printf("Logman gRPC server running on port %s", port)
@@ -375,6 +391,10 @@ func (s *Server) BatchSendLogs(
 	future := s.Node.Raft.Apply(data, 10*time.Second)
 
 	if err := future.Error(); err != nil {
+		if s.Metrics != nil {
+			s.Metrics.RecordError()
+		}
+
 		return nil, status.Errorf(
 			codes.Internal,
 			"failed to commit batch: %v",
@@ -388,6 +408,11 @@ func (s *Server) BatchSendLogs(
 			codes.Internal,
 			"unexpected Raft batch apply response",
 		)
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.RecordLogs(len(appliedEntries))
+		s.Metrics.RecordBatch()
 	}
 
 	response := &pb.BatchLogResponse{

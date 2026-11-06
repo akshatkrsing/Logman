@@ -22,8 +22,9 @@ type LogEntry struct {
 }
 
 type BatchCommand struct {
-	Type    string     `json:"type"`
-	Entries []LogEntry `json:"entries"`
+	Type            string     `json:"type"`
+	Entries         []LogEntry `json:"entries,omitempty"`
+	BeforeTimestamp int64      `json:"before_timestamp,omitempty"`
 }
 
 type MetadataKey struct {
@@ -141,7 +142,13 @@ func (f *FSM) rebuildIndexesLocked() {
 func (f *FSM) Apply(log *hashiraft.Log) interface{} {
 	var command BatchCommand
 
-	if err := json.Unmarshal(log.Data, &command); err == nil && command.Type == "batch" {
+	if err := json.Unmarshal(log.Data, &command); err != nil {
+		return fmt.Errorf("unmarshal Raft command: %w", err)
+	}
+
+	switch command.Type {
+
+	case "batch":
 		if len(command.Entries) == 0 {
 			return fmt.Errorf("batch cannot be empty")
 		}
@@ -156,19 +163,45 @@ func (f *FSM) Apply(log *hashiraft.Log) interface{} {
 		}
 
 		return results
+
+	case "retention":
+		if command.BeforeTimestamp <= 0 {
+			return fmt.Errorf("invalid retention timestamp")
+		}
+
+		f.mu.Lock()
+		defer f.mu.Unlock()
+
+		retained := make([]LogEntry, 0, len(f.logs))
+		removed := 0
+
+		for _, entry := range f.logs {
+			if entry.Timestamp < command.BeforeTimestamp {
+				removed++
+				continue
+			}
+
+			retained = append(retained, entry)
+		}
+
+		f.logs = retained
+		f.rebuildIndexesLocked()
+
+		return removed
+
+	default:
+		// Backward compatibility with existing single-log Raft entries.
+		var entry LogEntry
+
+		if err := json.Unmarshal(log.Data, &entry); err != nil {
+			return fmt.Errorf("unmarshal log entry: %w", err)
+		}
+
+		f.mu.Lock()
+		defer f.mu.Unlock()
+
+		return f.applyEntryLocked(entry)
 	}
-
-	// Backward compatibility with previously committed single-log entries.
-	var entry LogEntry
-
-	if err := json.Unmarshal(log.Data, &entry); err != nil {
-		return fmt.Errorf("unmarshal log entry: %w", err)
-	}
-
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.applyEntryLocked(entry)
 }
 
 func (f *FSM) applyEntryLocked(entry LogEntry) LogEntry {

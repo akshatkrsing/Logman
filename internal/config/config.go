@@ -11,17 +11,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Duration time.Duration
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	parsed, err := time.ParseDuration(value.Value)
+	if err != nil {
+		return err
+	}
+
+	*d = Duration(parsed)
+	return nil
+}
+
 type Config struct {
-	NodeID            string        `yaml:"node_id"`
-	RaftBindAddress   string        `yaml:"raft_bind_address"`
-	GRPCAddress       string        `yaml:"grpc_address"`
-	DataDir           string        `yaml:"data_dir"`
-	Bootstrap         bool          `yaml:"bootstrap"`
-	JoinAddress       string        `yaml:"join_address"`
-	SnapshotInterval  time.Duration `yaml:"snapshot_interval"`
-	SnapshotThreshold uint64        `yaml:"snapshot_threshold"`
-	MaxLogSize        int           `yaml:"max_log_size"`
-	MaxBatchSize      int           `yaml:"max_batch_size"`
+	NodeID            string   `yaml:"node_id"`
+	RaftBindAddress   string   `yaml:"raft_bind_address"`
+	GRPCAddress       string   `yaml:"grpc_address"`
+	DataDir           string   `yaml:"data_dir"`
+	Bootstrap         bool     `yaml:"bootstrap"`
+	JoinAddress       string   `yaml:"join_address"`
+	SnapshotInterval  Duration `yaml:"snapshot_interval"`
+	SnapshotThreshold uint64   `yaml:"snapshot_threshold"`
+	MaxLogSize        int      `yaml:"max_log_size"`
+	MaxBatchSize      int      `yaml:"max_batch_size"`
+	RetentionInterval Duration `yaml:"retention_interval"`
+	RetentionAge      Duration `yaml:"retention_age"`
 }
 
 func Load(path string) (*Config, error) {
@@ -65,7 +79,7 @@ func (c *Config) applyEnvironment() {
 
 	if value, ok := os.LookupEnv("LOGMAN_SNAPSHOT_INTERVAL"); ok {
 		if parsed, err := time.ParseDuration(value); err == nil {
-			c.SnapshotInterval = parsed
+			c.SnapshotInterval = Duration(parsed)
 		}
 	}
 
@@ -84,6 +98,18 @@ func (c *Config) applyEnvironment() {
 	if value, ok := os.LookupEnv("LOGMAN_MAX_BATCH_SIZE"); ok {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			c.MaxBatchSize = parsed
+		}
+	}
+
+	if value, ok := os.LookupEnv("LOGMAN_RETENTION_INTERVAL"); ok {
+		if parsed, err := time.ParseDuration(value); err == nil {
+			c.RetentionInterval = Duration(parsed)
+		}
+	}
+
+	if value, ok := os.LookupEnv("LOGMAN_RETENTION_AGE"); ok {
+		if parsed, err := time.ParseDuration(value); err == nil {
+			c.RetentionAge = Duration(parsed)
 		}
 	}
 }
@@ -131,6 +157,21 @@ func (c *Config) Validate() error {
 
 	if c.Bootstrap && c.JoinAddress != "" {
 		return fmt.Errorf("bootstrap node cannot specify join_address")
+	}
+
+	retentionInterval := time.Duration(c.RetentionInterval)
+	retentionAge := time.Duration(c.RetentionAge)
+
+	if retentionInterval < 0 || retentionAge < 0 {
+		return fmt.Errorf("retention settings cannot be negative")
+	}
+
+	if (retentionInterval == 0) != (retentionAge == 0) {
+		return fmt.Errorf("retention_interval and retention_age must both be configured or both be zero")
+	}
+
+	if retentionInterval > 0 && retentionAge < retentionInterval {
+		return fmt.Errorf("retention_age must be greater than or equal to retention_interval")
 	}
 
 	return nil

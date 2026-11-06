@@ -12,6 +12,7 @@ import (
 )
 
 type Node struct {
+	ID        string
 	Raft      *hashiraft.Raft
 	FSM       *FSM
 	Transport *hashiraft.NetworkTransport
@@ -24,6 +25,9 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 	}
 
 	config := hashiraft.DefaultConfig()
+	config.SnapshotInterval = 30 * time.Second
+	config.SnapshotThreshold = 8192
+	config.TrailingLogs = 10000
 	config.LocalID = hashiraft.ServerID(nodeID)
 
 	transport, err := hashiraft.NewTCPTransport(
@@ -67,6 +71,7 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 	}
 
 	node := &Node{
+		ID:        nodeID,
 		Raft:      raftNode,
 		FSM:       fsm,
 		Transport: transport,

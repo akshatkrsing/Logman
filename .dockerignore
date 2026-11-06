@@ -1,0 +1,9 @@
+
+.git
+.gitignore
+data/
+*.txt
+request.json
+*.exe
+*.test
+vendor/
