@@ -28,6 +28,7 @@ type LogRequest struct {
 	Level         string                 `protobuf:"bytes,3,opt,name=level,proto3" json:"level,omitempty"`
 	ServiceName   string                 `protobuf:"bytes,4,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,5,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -97,6 +98,13 @@ func (x *LogRequest) GetTimestamp() int64 {
 	return 0
 }
 
+func (x *LogRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 type LogResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -160,13 +168,17 @@ func (x *LogResponse) GetLogId() string {
 type GetLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Deprecated: Marked as deprecated in proto/logman.proto.
-	Limit          int32  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
-	Level          string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
-	ServiceName    string `protobuf:"bytes,3,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
-	StartTimestamp int64  `protobuf:"varint,4,opt,name=start_timestamp,json=startTimestamp,proto3" json:"start_timestamp,omitempty"`
-	EndTimestamp   int64  `protobuf:"varint,5,opt,name=end_timestamp,json=endTimestamp,proto3" json:"end_timestamp,omitempty"`
-	PageNumber     int32  `protobuf:"varint,6,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
-	PageSize       int32  `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Limit          int32             `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Level          string            `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
+	ServiceName    string            `protobuf:"bytes,3,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	StartTimestamp int64             `protobuf:"varint,4,opt,name=start_timestamp,json=startTimestamp,proto3" json:"start_timestamp,omitempty"`
+	EndTimestamp   int64             `protobuf:"varint,5,opt,name=end_timestamp,json=endTimestamp,proto3" json:"end_timestamp,omitempty"`
+	PageNumber     int32             `protobuf:"varint,6,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	PageSize       int32             `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Keyword        string            `protobuf:"bytes,8,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	RequestId      string            `protobuf:"bytes,9,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Levels         []string          `protobuf:"bytes,10,rep,name=levels,proto3" json:"levels,omitempty"`
+	Metadata       map[string]string `protobuf:"bytes,11,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -251,6 +263,34 @@ func (x *GetLogsRequest) GetPageSize() int32 {
 	return 0
 }
 
+func (x *GetLogsRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+func (x *GetLogsRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *GetLogsRequest) GetLevels() []string {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
+}
+
+func (x *GetLogsRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 type LogEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LogId         string                 `protobuf:"bytes,1,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
@@ -259,6 +299,7 @@ type LogEntry struct {
 	Level         string                 `protobuf:"bytes,4,opt,name=level,proto3" json:"level,omitempty"`
 	ServiceName   string                 `protobuf:"bytes,5,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Metadata      map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -333,6 +374,13 @@ func (x *LogEntry) GetTimestamp() int64 {
 		return x.Timestamp
 	}
 	return 0
+}
+
+func (x *LogEntry) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 type GetLogsResponse struct {
@@ -415,7 +463,7 @@ var File_proto_logman_proto protoreflect.FileDescriptor
 
 const file_proto_logman_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/logman.proto\x12\x06logman\"\x9c\x01\n" +
+	"\x12proto/logman.proto\x12\x06logman\"\x97\x02\n" +
 	"\n" +
 	"LogRequest\x12\x1d\n" +
 	"\n" +
@@ -423,11 +471,15 @@ const file_proto_logman_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
 	"\x05level\x18\x03 \x01(\tR\x05level\x12!\n" +
 	"\fservice_name\x18\x04 \x01(\tR\vserviceName\x12\x1c\n" +
-	"\ttimestamp\x18\x05 \x01(\x03R\ttimestamp\"X\n" +
+	"\ttimestamp\x18\x05 \x01(\x03R\ttimestamp\x12<\n" +
+	"\bmetadata\x18\x06 \x03(\v2 .logman.LogRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"X\n" +
 	"\vLogResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x15\n" +
-	"\x06log_id\x18\x03 \x01(\tR\x05logId\"\xef\x01\n" +
+	"\x06log_id\x18\x03 \x01(\tR\x05logId\"\xbf\x03\n" +
 	"\x0eGetLogsRequest\x12\x18\n" +
 	"\x05limit\x18\x01 \x01(\x05B\x02\x18\x01R\x05limit\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12!\n" +
@@ -436,7 +488,16 @@ const file_proto_logman_proto_rawDesc = "" +
 	"\rend_timestamp\x18\x05 \x01(\x03R\fendTimestamp\x12\x1f\n" +
 	"\vpage_number\x18\x06 \x01(\x05R\n" +
 	"pageNumber\x12\x1b\n" +
-	"\tpage_size\x18\a \x01(\x05R\bpageSize\"\xb1\x01\n" +
+	"\tpage_size\x18\a \x01(\x05R\bpageSize\x12\x18\n" +
+	"\akeyword\x18\b \x01(\tR\akeyword\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\t \x01(\tR\trequestId\x12\x16\n" +
+	"\x06levels\x18\n" +
+	" \x03(\tR\x06levels\x12@\n" +
+	"\bmetadata\x18\v \x03(\v2$.logman.GetLogsRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaa\x02\n" +
 	"\bLogEntry\x12\x15\n" +
 	"\x06log_id\x18\x01 \x01(\tR\x05logId\x12\x1d\n" +
 	"\n" +
@@ -444,7 +505,11 @@ const file_proto_logman_proto_rawDesc = "" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12\x14\n" +
 	"\x05level\x18\x04 \x01(\tR\x05level\x12!\n" +
 	"\fservice_name\x18\x05 \x01(\tR\vserviceName\x12\x1c\n" +
-	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\"\xb1\x01\n" +
+	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\x12:\n" +
+	"\bmetadata\x18\a \x03(\v2\x1e.logman.LogEntry.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb1\x01\n" +
 	"\x0fGetLogsResponse\x12$\n" +
 	"\x04logs\x18\x01 \x03(\v2\x10.logman.LogEntryR\x04logs\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
@@ -470,25 +535,31 @@ func file_proto_logman_proto_rawDescGZIP() []byte {
 	return file_proto_logman_proto_rawDescData
 }
 
-var file_proto_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_logman_proto_goTypes = []any{
 	(*LogRequest)(nil),      // 0: logman.LogRequest
 	(*LogResponse)(nil),     // 1: logman.LogResponse
 	(*GetLogsRequest)(nil),  // 2: logman.GetLogsRequest
 	(*LogEntry)(nil),        // 3: logman.LogEntry
 	(*GetLogsResponse)(nil), // 4: logman.GetLogsResponse
+	nil,                     // 5: logman.LogRequest.MetadataEntry
+	nil,                     // 6: logman.GetLogsRequest.MetadataEntry
+	nil,                     // 7: logman.LogEntry.MetadataEntry
 }
 var file_proto_logman_proto_depIdxs = []int32{
-	3, // 0: logman.GetLogsResponse.logs:type_name -> logman.LogEntry
-	0, // 1: logman.LogService.SendLog:input_type -> logman.LogRequest
-	2, // 2: logman.LogService.GetLogs:input_type -> logman.GetLogsRequest
-	1, // 3: logman.LogService.SendLog:output_type -> logman.LogResponse
-	4, // 4: logman.LogService.GetLogs:output_type -> logman.GetLogsResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5, // 0: logman.LogRequest.metadata:type_name -> logman.LogRequest.MetadataEntry
+	6, // 1: logman.GetLogsRequest.metadata:type_name -> logman.GetLogsRequest.MetadataEntry
+	7, // 2: logman.LogEntry.metadata:type_name -> logman.LogEntry.MetadataEntry
+	3, // 3: logman.GetLogsResponse.logs:type_name -> logman.LogEntry
+	0, // 4: logman.LogService.SendLog:input_type -> logman.LogRequest
+	2, // 5: logman.LogService.GetLogs:input_type -> logman.GetLogsRequest
+	1, // 6: logman.LogService.SendLog:output_type -> logman.LogResponse
+	4, // 7: logman.LogService.GetLogs:output_type -> logman.GetLogsResponse
+	6, // [6:8] is the sub-list for method output_type
+	4, // [4:6] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_proto_logman_proto_init() }
@@ -502,7 +573,7 @@ func file_proto_logman_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_logman_proto_rawDesc), len(file_proto_logman_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

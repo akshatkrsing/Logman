@@ -30,7 +30,11 @@ type Server struct {
 }
 
 func (s *Server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
-	if req.GetMessage() == "" {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+
+	if strings.TrimSpace(req.GetMessage()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "log message cannot be empty")
 	}
 
@@ -58,6 +62,7 @@ func (s *Server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogRespon
 		Level:       req.GetLevel(),
 		ServiceName: req.GetServiceName(),
 		Timestamp:   timestamp,
+		Metadata:    req.GetMetadata(),
 	}
 
 	data, err := json.Marshal(entry)
@@ -84,7 +89,25 @@ func (s *Server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogRespon
 	}, nil
 }
 
-func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLogsResponse, error) {
+func matchesMetadata(
+	entryMetadata map[string]string,
+	requestMetadata map[string]string,
+) bool {
+	for key, expectedValue := range requestMetadata {
+		actualValue, exists := entryMetadata[key]
+
+		if !exists || actualValue != expectedValue {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *Server) GetLogs(
+	ctx context.Context,
+	req *pb.GetLogsRequest,
+) (*pb.GetLogsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
@@ -98,17 +121,22 @@ func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLo
 		)
 	}
 
-	pageNumber := int(req.GetPageNumber())
+	pageNumber := req.GetPageNumber()
+
 	if pageNumber < 0 {
-		return nil, status.Error(codes.InvalidArgument, "page_number cannot be negative")
+		return nil, status.Error(
+			codes.InvalidArgument,
+			"page_number cannot be negative",
+		)
 	}
+
 	if pageNumber == 0 {
 		pageNumber = 1
 	}
 
 	pageSize := int(req.GetPageSize())
 
-	// Backward compatibility with the old limit field.
+	// Backward compatibility with the original limit field.
 	if pageSize == 0 && req.GetLimit() > 0 {
 		pageSize = int(req.GetLimit())
 	}
@@ -118,7 +146,10 @@ func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLo
 	}
 
 	if pageSize < 0 {
-		return nil, status.Error(codes.InvalidArgument, "page_size cannot be negative")
+		return nil, status.Error(
+			codes.InvalidArgument,
+			"page_size cannot be negative",
+		)
 	}
 
 	if pageSize > maxPageSize {
@@ -134,19 +165,53 @@ func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLo
 
 	levelFilter := strings.TrimSpace(req.GetLevel())
 	serviceFilter := strings.TrimSpace(req.GetServiceName())
+	keywordFilter := strings.TrimSpace(req.GetKeyword())
+	requestIDFilter := req.GetRequestId()
 
-	// Apply all filters before pagination.
+	requestedLevels := make(map[string]struct{}, len(req.GetLevels()))
+	for _, level := range req.GetLevels() {
+		normalizedLevel := strings.ToUpper(strings.TrimSpace(level))
+		if normalizedLevel != "" {
+			requestedLevels[normalizedLevel] = struct{}{}
+		}
+	}
+
 	for _, entry := range allEntries {
+		// Single-level filter.
 		if levelFilter != "" &&
 			!strings.EqualFold(entry.Level, levelFilter) {
 			continue
 		}
 
+		// Multiple-level filter: match any requested level.
+		if len(requestedLevels) > 0 {
+			if _, exists := requestedLevels[strings.ToUpper(entry.Level)]; !exists {
+				continue
+			}
+		}
+
+		// Service-name filter.
 		if serviceFilter != "" &&
 			!strings.EqualFold(entry.ServiceName, serviceFilter) {
 			continue
 		}
 
+		// Keyword search in the log message.
+		if keywordFilter != "" &&
+			!strings.Contains(
+				strings.ToLower(entry.Message),
+				strings.ToLower(keywordFilter),
+			) {
+			continue
+		}
+
+		// Exact request ID filter.
+		if requestIDFilter != "" &&
+			entry.RequestID != requestIDFilter {
+			continue
+		}
+
+		// Inclusive timestamp boundaries.
 		if req.GetStartTimestamp() > 0 &&
 			entry.Timestamp < req.GetStartTimestamp() {
 			continue
@@ -157,37 +222,37 @@ func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLo
 			continue
 		}
 
+		// All requested metadata pairs must match exactly.
+		if !matchesMetadata(entry.Metadata, req.GetMetadata()) {
+			continue
+		}
+
 		filteredEntries = append(filteredEntries, entry)
 	}
 
 	totalCount := len(filteredEntries)
 
-	// Calculate pagination boundaries safely.
-	startIndex := 0
-	if pageNumber > 1 {
-		if pageNumber-1 > totalCount/pageSize {
-			startIndex = totalCount
-		} else {
-			startIndex = (pageNumber - 1) * pageSize
-			if startIndex > totalCount {
-				startIndex = totalCount
-			}
-		}
+	// Calculate pagination after filtering.
+	startIndex := int64(pageNumber-1) * int64(pageSize)
+
+	if startIndex >= int64(totalCount) {
+		startIndex = int64(totalCount)
 	}
 
-	endIndex := startIndex + pageSize
-	if endIndex > totalCount {
-		endIndex = totalCount
+	endIndex := startIndex + int64(pageSize)
+
+	if endIndex > int64(totalCount) {
+		endIndex = int64(totalCount)
 	}
 
-	pageEntries := filteredEntries[startIndex:endIndex]
+	pageEntries := filteredEntries[int(startIndex):int(endIndex)]
 
 	response := &pb.GetLogsResponse{
 		Logs:       make([]*pb.LogEntry, 0, len(pageEntries)),
 		TotalCount: int32(totalCount),
-		PageNumber: int32(pageNumber),
+		PageNumber: pageNumber,
 		PageSize:   int32(pageSize),
-		HasMore:    endIndex < totalCount,
+		HasMore:    endIndex < int64(totalCount),
 	}
 
 	for _, entry := range pageEntries {
@@ -198,6 +263,7 @@ func (s *Server) GetLogs(ctx context.Context, req *pb.GetLogsRequest) (*pb.GetLo
 			Level:       entry.Level,
 			ServiceName: entry.ServiceName,
 			Timestamp:   entry.Timestamp,
+			Metadata:    entry.Metadata,
 		})
 	}
 

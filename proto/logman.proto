@@ -16,6 +16,7 @@ message LogRequest {
   string level = 3;
   string service_name = 4;
   int64 timestamp = 5;
+  map<string, string> metadata = 6;
 }
 
 message LogResponse {
@@ -32,6 +33,10 @@ message GetLogsRequest {
   int64 end_timestamp = 5;
   int32 page_number = 6;
   int32 page_size = 7;
+  string keyword = 8;
+  string request_id = 9;
+  repeated string levels = 10;
+  map<string, string> metadata = 11;
 }
 
 message LogEntry {
@@ -41,6 +46,7 @@ message LogEntry {
   string level = 4;
   string service_name = 5;
   int64 timestamp = 6;
+  map<string, string> metadata = 7;
 }
 
 message GetLogsResponse {

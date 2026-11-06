@@ -10,12 +10,13 @@ import (
 )
 
 type LogEntry struct {
-	ID          string `json:"id"`
-	RequestID   string `json:"request_id"`
-	Message     string `json:"message"`
-	Level       string `json:"level"`
-	ServiceName string `json:"service_name"`
-	Timestamp   int64  `json:"timestamp"`
+	ID          string            `json:"id"`
+	RequestID   string            `json:"request_id"`
+	Message     string            `json:"message"`
+	Level       string            `json:"level"`
+	ServiceName string            `json:"service_name"`
+	Timestamp   int64             `json:"timestamp"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 type FSM struct {
@@ -29,6 +30,30 @@ func NewFSM(nodeID string) *FSM {
 		logs:   make([]LogEntry, 0),
 		nodeID: nodeID,
 	}
+}
+
+func cloneLogEntry(entry LogEntry) LogEntry {
+	cloned := entry
+
+	if entry.Metadata != nil {
+		cloned.Metadata = make(map[string]string, len(entry.Metadata))
+
+		for key, value := range entry.Metadata {
+			cloned.Metadata[key] = value
+		}
+	}
+
+	return cloned
+}
+
+func cloneLogs(logs []LogEntry) []LogEntry {
+	result := make([]LogEntry, len(logs))
+
+	for i, entry := range logs {
+		result[i] = cloneLogEntry(entry)
+	}
+
+	return result
 }
 
 func (f *FSM) Apply(logEntry *hashiraft.Log) interface{} {
@@ -55,10 +80,9 @@ func (f *FSM) Snapshot() (hashiraft.FSMSnapshot, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	logs := make([]LogEntry, len(f.logs))
-	copy(logs, f.logs)
-
-	return &Snapshot{logs: logs}, nil
+	return &Snapshot{
+		logs: cloneLogs(f.logs),
+	}, nil
 }
 
 func (f *FSM) Restore(rc io.ReadCloser) error {
@@ -73,7 +97,8 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.logs = logs
+	f.logs = cloneLogs(logs)
+
 	return nil
 }
 
@@ -81,10 +106,7 @@ func (f *FSM) GetLogs() []LogEntry {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	result := make([]LogEntry, len(f.logs))
-	copy(result, f.logs)
-
-	return result
+	return cloneLogs(f.logs)
 }
 
 type Snapshot struct {
