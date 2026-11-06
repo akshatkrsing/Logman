@@ -1,9 +1,9 @@
-
 package raft
 
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"sync"
 
 	hashiraft "github.com/hashicorp/raft"
@@ -19,13 +19,15 @@ type LogEntry struct {
 }
 
 type FSM struct {
-	mu   sync.RWMutex
-	logs []LogEntry
+	mu     sync.RWMutex
+	logs   []LogEntry
+	nodeID string
 }
 
-func NewFSM() *FSM {
+func NewFSM(nodeID string) *FSM {
 	return &FSM{
-		logs: make([]LogEntry, 0),
+		logs:   make([]LogEntry, 0),
+		nodeID: nodeID,
 	}
 }
 
@@ -37,9 +39,15 @@ func (f *FSM) Apply(logEntry *hashiraft.Log) interface{} {
 	}
 
 	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	f.logs = append(f.logs, entry)
+	f.mu.Unlock()
+
+	log.Printf(
+		"[FSM] Node: %s | Applied Log ID: %s",
+		f.nodeID,
+		entry.ID,
+	)
+
 	return nil
 }
 
@@ -57,6 +65,7 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
 
 	var logs []LogEntry
+
 	if err := json.NewDecoder(rc).Decode(&logs); err != nil {
 		return err
 	}
@@ -83,8 +92,7 @@ type Snapshot struct {
 }
 
 func (s *Snapshot) Persist(sink hashiraft.SnapshotSink) error {
-	err := json.NewEncoder(sink).Encode(s.logs)
-	if err != nil {
+	if err := json.NewEncoder(sink).Encode(s.logs); err != nil {
 		_ = sink.Cancel()
 		return err
 	}

@@ -1,7 +1,7 @@
-
 package raft
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,8 +12,10 @@ import (
 )
 
 type Node struct {
-	Raft *hashiraft.Raft
-	FSM  *FSM
+	Raft      *hashiraft.Raft
+	FSM       *FSM
+	Transport *hashiraft.NetworkTransport
+	Store     *bolt.BoltStore
 }
 
 func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error) {
@@ -24,7 +26,7 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 	config := hashiraft.DefaultConfig()
 	config.LocalID = hashiraft.ServerID(nodeID)
 
-	addr, err := hashiraft.NewTCPTransport(
+	transport, err := hashiraft.NewTCPTransport(
 		raftAddress,
 		nil,
 		3,
@@ -37,18 +39,18 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 
 	store, err := bolt.NewBoltStore(filepath.Join(dataDir, "raft.db"))
 	if err != nil {
-		addr.Close()
+		transport.Close()
 		return nil, fmt.Errorf("create raft store: %w", err)
 	}
 
 	snapshotStore, err := hashiraft.NewFileSnapshotStore(dataDir, 2, os.Stdout)
 	if err != nil {
-		addr.Close()
+		transport.Close()
 		store.Close()
 		return nil, err
 	}
 
-	fsm := NewFSM()
+	fsm := NewFSM(nodeID)
 
 	raftNode, err := hashiraft.NewRaft(
 		config,
@@ -56,41 +58,56 @@ func NewNode(nodeID, raftAddress, dataDir string, bootstrap bool) (*Node, error)
 		store,
 		store,
 		snapshotStore,
-		addr,
+		transport,
 	)
 	if err != nil {
-		addr.Close()
+		transport.Close()
 		store.Close()
 		return nil, err
 	}
 
 	node := &Node{
-		Raft: raftNode,
-		FSM:  fsm,
+		Raft:      raftNode,
+		FSM:       fsm,
+		Transport: transport,
+		Store:     store,
 	}
 
 	if bootstrap {
-		configuration := hashiraft.Configuration{
-			Servers: []hashiraft.Server{
-				{
-					ID:      hashiraft.ServerID(nodeID),
-					Address: addr.LocalAddr(),
-				},
-			},
+		configurationFuture := raftNode.GetConfiguration()
+
+		if err := configurationFuture.Error(); err != nil {
+			node.Shutdown()
+			return nil, fmt.Errorf("get raft configuration: %w", err)
 		}
 
-		future := raftNode.BootstrapCluster(configuration)
-		if err := future.Error(); err != nil {
-			raftNode.Shutdown()
-			return nil, fmt.Errorf("bootstrap cluster: %w", err)
+		if len(configurationFuture.Configuration().Servers) == 0 {
+			configuration := hashiraft.Configuration{
+				Servers: []hashiraft.Server{
+					{
+						ID:      hashiraft.ServerID(nodeID),
+						Address: transport.LocalAddr(),
+					},
+				},
+			}
+
+			future := raftNode.BootstrapCluster(configuration)
+
+			if err := future.Error(); err != nil {
+				node.Shutdown()
+				return nil, fmt.Errorf("bootstrap cluster: %w", err)
+			}
 		}
 	}
 
 	return node, nil
 }
 
-
 func (n *Node) Join(nodeID, raftAddress string) error {
+	return n.AddVoter(nodeID, raftAddress)
+}
+
+func (n *Node) AddVoter(nodeID, raftAddress string) error {
 	future := n.Raft.AddVoter(
 		hashiraft.ServerID(nodeID),
 		hashiraft.ServerAddress(raftAddress),
@@ -101,16 +118,26 @@ func (n *Node) Join(nodeID, raftAddress string) error {
 	return future.Error()
 }
 
+func (n *Node) Shutdown() error {
+	var shutdownErrors []error
 
-func (n *Node) AddVoter(nodeID, raftAddress string) error {
-    future := n.Raft.AddVoter(
-        hashiraft.ServerID(nodeID),
-        hashiraft.ServerAddress(raftAddress),
-        0,
-        10*time.Second,
-    )
+	if n.Raft != nil {
+		if err := n.Raft.Shutdown().Error(); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
+		}
+	}
 
-    return future.Error()
+	if n.Transport != nil {
+		if err := n.Transport.Close(); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
+		}
+	}
+
+	if n.Store != nil {
+		if err := n.Store.Close(); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
+		}
+	}
+
+	return errors.Join(shutdownErrors...)
 }
-
-
