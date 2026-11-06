@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v7.36.2
-// source: logman.proto
+// source: proto/logman.proto
 
 package logmanpb
 
@@ -155,5 +155,5 @@ var LogService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "logman.proto",
+	Metadata: "proto/logman.proto",
 }

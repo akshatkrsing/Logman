@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        v7.36.2
-// source: logman.proto
+// source: proto/logman.proto
 
 package logmanpb
 
@@ -34,7 +34,7 @@ type LogRequest struct {
 
 func (x *LogRequest) Reset() {
 	*x = LogRequest{}
-	mi := &file_logman_proto_msgTypes[0]
+	mi := &file_proto_logman_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *LogRequest) String() string {
 func (*LogRequest) ProtoMessage() {}
 
 func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_logman_proto_msgTypes[0]
+	mi := &file_proto_logman_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *LogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
 func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_logman_proto_rawDescGZIP(), []int{0}
+	return file_proto_logman_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LogRequest) GetRequestId() string {
@@ -108,7 +108,7 @@ type LogResponse struct {
 
 func (x *LogResponse) Reset() {
 	*x = LogResponse{}
-	mi := &file_logman_proto_msgTypes[1]
+	mi := &file_proto_logman_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -120,7 +120,7 @@ func (x *LogResponse) String() string {
 func (*LogResponse) ProtoMessage() {}
 
 func (x *LogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_logman_proto_msgTypes[1]
+	mi := &file_proto_logman_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -133,7 +133,7 @@ func (x *LogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogResponse.ProtoReflect.Descriptor instead.
 func (*LogResponse) Descriptor() ([]byte, []int) {
-	return file_logman_proto_rawDescGZIP(), []int{1}
+	return file_proto_logman_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *LogResponse) GetSuccess() bool {
@@ -158,15 +158,22 @@ func (x *LogResponse) GetLogId() string {
 }
 
 type GetLogsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: Marked as deprecated in proto/logman.proto.
+	Limit          int32  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Level          string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
+	ServiceName    string `protobuf:"bytes,3,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	StartTimestamp int64  `protobuf:"varint,4,opt,name=start_timestamp,json=startTimestamp,proto3" json:"start_timestamp,omitempty"`
+	EndTimestamp   int64  `protobuf:"varint,5,opt,name=end_timestamp,json=endTimestamp,proto3" json:"end_timestamp,omitempty"`
+	PageNumber     int32  `protobuf:"varint,6,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	PageSize       int32  `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetLogsRequest) Reset() {
 	*x = GetLogsRequest{}
-	mi := &file_logman_proto_msgTypes[2]
+	mi := &file_proto_logman_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -178,7 +185,7 @@ func (x *GetLogsRequest) String() string {
 func (*GetLogsRequest) ProtoMessage() {}
 
 func (x *GetLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_logman_proto_msgTypes[2]
+	mi := &file_proto_logman_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -191,12 +198,55 @@ func (x *GetLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLogsRequest.ProtoReflect.Descriptor instead.
 func (*GetLogsRequest) Descriptor() ([]byte, []int) {
-	return file_logman_proto_rawDescGZIP(), []int{2}
+	return file_proto_logman_proto_rawDescGZIP(), []int{2}
 }
 
+// Deprecated: Marked as deprecated in proto/logman.proto.
 func (x *GetLogsRequest) GetLimit() int32 {
 	if x != nil {
 		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetLogsRequest) GetLevel() string {
+	if x != nil {
+		return x.Level
+	}
+	return ""
+}
+
+func (x *GetLogsRequest) GetServiceName() string {
+	if x != nil {
+		return x.ServiceName
+	}
+	return ""
+}
+
+func (x *GetLogsRequest) GetStartTimestamp() int64 {
+	if x != nil {
+		return x.StartTimestamp
+	}
+	return 0
+}
+
+func (x *GetLogsRequest) GetEndTimestamp() int64 {
+	if x != nil {
+		return x.EndTimestamp
+	}
+	return 0
+}
+
+func (x *GetLogsRequest) GetPageNumber() int32 {
+	if x != nil {
+		return x.PageNumber
+	}
+	return 0
+}
+
+func (x *GetLogsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
 	}
 	return 0
 }
@@ -215,7 +265,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_logman_proto_msgTypes[3]
+	mi := &file_proto_logman_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -227,7 +277,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_logman_proto_msgTypes[3]
+	mi := &file_proto_logman_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -240,7 +290,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_logman_proto_rawDescGZIP(), []int{3}
+	return file_proto_logman_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *LogEntry) GetLogId() string {
@@ -288,13 +338,17 @@ func (x *LogEntry) GetTimestamp() int64 {
 type GetLogsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Logs          []*LogEntry            `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	PageNumber    int32                  `protobuf:"varint,3,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	HasMore       bool                   `protobuf:"varint,5,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetLogsResponse) Reset() {
 	*x = GetLogsResponse{}
-	mi := &file_logman_proto_msgTypes[4]
+	mi := &file_proto_logman_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -306,7 +360,7 @@ func (x *GetLogsResponse) String() string {
 func (*GetLogsResponse) ProtoMessage() {}
 
 func (x *GetLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_logman_proto_msgTypes[4]
+	mi := &file_proto_logman_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -319,7 +373,7 @@ func (x *GetLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLogsResponse.ProtoReflect.Descriptor instead.
 func (*GetLogsResponse) Descriptor() ([]byte, []int) {
-	return file_logman_proto_rawDescGZIP(), []int{4}
+	return file_proto_logman_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetLogsResponse) GetLogs() []*LogEntry {
@@ -329,11 +383,39 @@ func (x *GetLogsResponse) GetLogs() []*LogEntry {
 	return nil
 }
 
-var File_logman_proto protoreflect.FileDescriptor
+func (x *GetLogsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
 
-const file_logman_proto_rawDesc = "" +
+func (x *GetLogsResponse) GetPageNumber() int32 {
+	if x != nil {
+		return x.PageNumber
+	}
+	return 0
+}
+
+func (x *GetLogsResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *GetLogsResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
+}
+
+var File_proto_logman_proto protoreflect.FileDescriptor
+
+const file_proto_logman_proto_rawDesc = "" +
 	"\n" +
-	"\flogman.proto\x12\x06logman\"\x9c\x01\n" +
+	"\x12proto/logman.proto\x12\x06logman\"\x9c\x01\n" +
 	"\n" +
 	"LogRequest\x12\x1d\n" +
 	"\n" +
@@ -345,9 +427,16 @@ const file_logman_proto_rawDesc = "" +
 	"\vLogResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x15\n" +
-	"\x06log_id\x18\x03 \x01(\tR\x05logId\"&\n" +
-	"\x0eGetLogsRequest\x12\x14\n" +
-	"\x05limit\x18\x01 \x01(\x05R\x05limit\"\xb1\x01\n" +
+	"\x06log_id\x18\x03 \x01(\tR\x05logId\"\xef\x01\n" +
+	"\x0eGetLogsRequest\x12\x18\n" +
+	"\x05limit\x18\x01 \x01(\x05B\x02\x18\x01R\x05limit\x12\x14\n" +
+	"\x05level\x18\x02 \x01(\tR\x05level\x12!\n" +
+	"\fservice_name\x18\x03 \x01(\tR\vserviceName\x12'\n" +
+	"\x0fstart_timestamp\x18\x04 \x01(\x03R\x0estartTimestamp\x12#\n" +
+	"\rend_timestamp\x18\x05 \x01(\x03R\fendTimestamp\x12\x1f\n" +
+	"\vpage_number\x18\x06 \x01(\x05R\n" +
+	"pageNumber\x12\x1b\n" +
+	"\tpage_size\x18\a \x01(\x05R\bpageSize\"\xb1\x01\n" +
 	"\bLogEntry\x12\x15\n" +
 	"\x06log_id\x18\x01 \x01(\tR\x05logId\x12\x1d\n" +
 	"\n" +
@@ -355,35 +444,41 @@ const file_logman_proto_rawDesc = "" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12\x14\n" +
 	"\x05level\x18\x04 \x01(\tR\x05level\x12!\n" +
 	"\fservice_name\x18\x05 \x01(\tR\vserviceName\x12\x1c\n" +
-	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\"7\n" +
+	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\"\xb1\x01\n" +
 	"\x0fGetLogsResponse\x12$\n" +
-	"\x04logs\x18\x01 \x03(\v2\x10.logman.LogEntryR\x04logs2|\n" +
+	"\x04logs\x18\x01 \x03(\v2\x10.logman.LogEntryR\x04logs\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12\x1f\n" +
+	"\vpage_number\x18\x03 \x01(\x05R\n" +
+	"pageNumber\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x19\n" +
+	"\bhas_more\x18\x05 \x01(\bR\ahasMore2|\n" +
 	"\n" +
 	"LogService\x122\n" +
 	"\aSendLog\x12\x12.logman.LogRequest\x1a\x13.logman.LogResponse\x12:\n" +
 	"\aGetLogs\x12\x16.logman.GetLogsRequest\x1a\x17.logman.GetLogsResponseB6Z4github.com/akshatkrsing/logman/gen/logmanpb;logmanpbb\x06proto3"
 
 var (
-	file_logman_proto_rawDescOnce sync.Once
-	file_logman_proto_rawDescData []byte
+	file_proto_logman_proto_rawDescOnce sync.Once
+	file_proto_logman_proto_rawDescData []byte
 )
 
-func file_logman_proto_rawDescGZIP() []byte {
-	file_logman_proto_rawDescOnce.Do(func() {
-		file_logman_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_logman_proto_rawDesc), len(file_logman_proto_rawDesc)))
+func file_proto_logman_proto_rawDescGZIP() []byte {
+	file_proto_logman_proto_rawDescOnce.Do(func() {
+		file_proto_logman_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_logman_proto_rawDesc), len(file_proto_logman_proto_rawDesc)))
 	})
-	return file_logman_proto_rawDescData
+	return file_proto_logman_proto_rawDescData
 }
 
-var file_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_logman_proto_goTypes = []any{
+var file_proto_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_logman_proto_goTypes = []any{
 	(*LogRequest)(nil),      // 0: logman.LogRequest
 	(*LogResponse)(nil),     // 1: logman.LogResponse
 	(*GetLogsRequest)(nil),  // 2: logman.GetLogsRequest
 	(*LogEntry)(nil),        // 3: logman.LogEntry
 	(*GetLogsResponse)(nil), // 4: logman.GetLogsResponse
 }
-var file_logman_proto_depIdxs = []int32{
+var file_proto_logman_proto_depIdxs = []int32{
 	3, // 0: logman.GetLogsResponse.logs:type_name -> logman.LogEntry
 	0, // 1: logman.LogService.SendLog:input_type -> logman.LogRequest
 	2, // 2: logman.LogService.GetLogs:input_type -> logman.GetLogsRequest
@@ -396,26 +491,26 @@ var file_logman_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_logman_proto_init() }
-func file_logman_proto_init() {
-	if File_logman_proto != nil {
+func init() { file_proto_logman_proto_init() }
+func file_proto_logman_proto_init() {
+	if File_proto_logman_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_logman_proto_rawDesc), len(file_logman_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_logman_proto_rawDesc), len(file_proto_logman_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_logman_proto_goTypes,
-		DependencyIndexes: file_logman_proto_depIdxs,
-		MessageInfos:      file_logman_proto_msgTypes,
+		GoTypes:           file_proto_logman_proto_goTypes,
+		DependencyIndexes: file_proto_logman_proto_depIdxs,
+		MessageInfos:      file_proto_logman_proto_msgTypes,
 	}.Build()
-	File_logman_proto = out.File
-	file_logman_proto_goTypes = nil
-	file_logman_proto_depIdxs = nil
+	File_proto_logman_proto = out.File
+	file_proto_logman_proto_goTypes = nil
+	file_proto_logman_proto_depIdxs = nil
 }

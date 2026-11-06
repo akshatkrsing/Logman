@@ -25,7 +25,13 @@ message LogResponse {
 }
 
 message GetLogsRequest {
-  int32 limit = 1;
+  int32 limit = 1 [deprecated = true];
+  string level = 2;
+  string service_name = 3;
+  int64 start_timestamp = 4;
+  int64 end_timestamp = 5;
+  int32 page_number = 6;
+  int32 page_size = 7;
 }
 
 message LogEntry {
@@ -39,4 +45,8 @@ message LogEntry {
 
 message GetLogsResponse {
   repeated LogEntry logs = 1;
+  int32 total_count = 2;
+  int32 page_number = 3;
+  int32 page_size = 4;
+  bool has_more = 5;
 }
