@@ -29,7 +29,11 @@ type Server struct {
 	Node *raftnode.Node
 }
 
-func (s *Server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
+func (s *Server) SendLog(
+	ctx context.Context,
+	req *pb.LogRequest,
+) (*pb.LogResponse, error) {
+
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
@@ -89,38 +93,27 @@ func (s *Server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogRespon
 	}, nil
 }
 
-func matchesMetadata(
-	entryMetadata map[string]string,
-	requestMetadata map[string]string,
-) bool {
-	for key, expectedValue := range requestMetadata {
-		actualValue, exists := entryMetadata[key]
-
-		if !exists || actualValue != expectedValue {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (s *Server) GetLogs(
 	ctx context.Context,
 	req *pb.GetLogsRequest,
 ) (*pb.GetLogsResponse, error) {
+
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
 
+	// Validate timestamp range.
 	if req.GetStartTimestamp() > 0 &&
 		req.GetEndTimestamp() > 0 &&
 		req.GetStartTimestamp() > req.GetEndTimestamp() {
+
 		return nil, status.Error(
 			codes.InvalidArgument,
 			"start_timestamp cannot be greater than end_timestamp",
 		)
 	}
 
+	// Validate page number.
 	pageNumber := req.GetPageNumber()
 
 	if pageNumber < 0 {
@@ -134,6 +127,7 @@ func (s *Server) GetLogs(
 		pageNumber = 1
 	}
 
+	// Resolve page size.
 	pageSize := int(req.GetPageSize())
 
 	// Backward compatibility with the original limit field.
@@ -160,43 +154,23 @@ func (s *Server) GetLogs(
 		)
 	}
 
-	allEntries := s.Node.FSM.GetLogs()
-	filteredEntries := make([]raftnode.LogEntry, 0, len(allEntries))
+	// Use FSM indexes for exact-match filters.
+	indexedEntries := s.Node.FSM.SearchLogs(raftnode.LogQuery{
+		RequestID:   req.GetRequestId(),
+		Level:       req.GetLevel(),
+		Levels:      req.GetLevels(),
+		ServiceName: req.GetServiceName(),
+		Metadata:    req.GetMetadata(),
+	})
 
-	levelFilter := strings.TrimSpace(req.GetLevel())
-	serviceFilter := strings.TrimSpace(req.GetServiceName())
+	filteredEntries := make([]raftnode.LogEntry, 0, len(indexedEntries))
+
 	keywordFilter := strings.TrimSpace(req.GetKeyword())
-	requestIDFilter := req.GetRequestId()
 
-	requestedLevels := make(map[string]struct{}, len(req.GetLevels()))
-	for _, level := range req.GetLevels() {
-		normalizedLevel := strings.ToUpper(strings.TrimSpace(level))
-		if normalizedLevel != "" {
-			requestedLevels[normalizedLevel] = struct{}{}
-		}
-	}
+	// Apply keyword and timestamp filters to indexed candidates.
+	for _, entry := range indexedEntries {
 
-	for _, entry := range allEntries {
-		// Single-level filter.
-		if levelFilter != "" &&
-			!strings.EqualFold(entry.Level, levelFilter) {
-			continue
-		}
-
-		// Multiple-level filter: match any requested level.
-		if len(requestedLevels) > 0 {
-			if _, exists := requestedLevels[strings.ToUpper(entry.Level)]; !exists {
-				continue
-			}
-		}
-
-		// Service-name filter.
-		if serviceFilter != "" &&
-			!strings.EqualFold(entry.ServiceName, serviceFilter) {
-			continue
-		}
-
-		// Keyword search in the log message.
+		// Case-insensitive keyword search.
 		if keywordFilter != "" &&
 			!strings.Contains(
 				strings.ToLower(entry.Message),
@@ -205,25 +179,15 @@ func (s *Server) GetLogs(
 			continue
 		}
 
-		// Exact request ID filter.
-		if requestIDFilter != "" &&
-			entry.RequestID != requestIDFilter {
-			continue
-		}
-
-		// Inclusive timestamp boundaries.
+		// Inclusive start timestamp.
 		if req.GetStartTimestamp() > 0 &&
 			entry.Timestamp < req.GetStartTimestamp() {
 			continue
 		}
 
+		// Inclusive end timestamp.
 		if req.GetEndTimestamp() > 0 &&
 			entry.Timestamp > req.GetEndTimestamp() {
-			continue
-		}
-
-		// All requested metadata pairs must match exactly.
-		if !matchesMetadata(entry.Metadata, req.GetMetadata()) {
 			continue
 		}
 
@@ -232,7 +196,8 @@ func (s *Server) GetLogs(
 
 	totalCount := len(filteredEntries)
 
-	// Calculate pagination after filtering.
+	// Calculate pagination boundaries using int64 to avoid
+	// integer overflow when handling large page numbers.
 	startIndex := int64(pageNumber-1) * int64(pageSize)
 
 	if startIndex >= int64(totalCount) {
@@ -247,6 +212,7 @@ func (s *Server) GetLogs(
 
 	pageEntries := filteredEntries[int(startIndex):int(endIndex)]
 
+	// Build response.
 	response := &pb.GetLogsResponse{
 		Logs:       make([]*pb.LogEntry, 0, len(pageEntries)),
 		TotalCount: int32(totalCount),
@@ -270,7 +236,11 @@ func (s *Server) GetLogs(
 	return response, nil
 }
 
-func StartGRPCServer(port string, node *raftnode.Node) (*grpc.Server, error) {
+func StartGRPCServer(
+	port string,
+	node *raftnode.Node,
+) (*grpc.Server, error) {
+
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return nil, err
@@ -293,4 +263,61 @@ func StartGRPCServer(port string, node *raftnode.Node) (*grpc.Server, error) {
 	}()
 
 	return server, nil
+}
+
+func (s *Server) BatchSendLogs(
+	ctx context.Context,
+	req *pb.BatchLogRequest,
+) (*pb.BatchLogResponse, error) {
+
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+
+	const maxBatchSize = 1000
+
+	logs := req.GetLogs()
+
+	if len(logs) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "batch cannot be empty")
+	}
+
+	if len(logs) > maxBatchSize {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"batch size exceeds maximum allowed size of %d",
+			maxBatchSize,
+		)
+	}
+
+	response := &pb.BatchLogResponse{
+		Results: make([]*pb.LogResponse, 0, len(logs)),
+	}
+
+	for _, logRequest := range logs {
+		if err := ctx.Err(); err != nil {
+			return nil, status.FromContextError(err).Err()
+		}
+
+		result, err := s.SendLog(ctx, logRequest)
+
+		if err != nil {
+			response.Results = append(response.Results, &pb.LogResponse{
+				Success: false,
+				Message: err.Error(),
+			})
+			response.RejectedCount++
+			continue
+		}
+
+		response.Results = append(response.Results, result)
+
+		if result.GetSuccess() {
+			response.AcceptedCount++
+		} else {
+			response.RejectedCount++
+		}
+	}
+
+	return response, nil
 }

@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LogService_SendLog_FullMethodName = "/logman.LogService/SendLog"
-	LogService_GetLogs_FullMethodName = "/logman.LogService/GetLogs"
+	LogService_SendLog_FullMethodName       = "/logman.LogService/SendLog"
+	LogService_BatchSendLogs_FullMethodName = "/logman.LogService/BatchSendLogs"
+	LogService_GetLogs_FullMethodName       = "/logman.LogService/GetLogs"
 )
 
 // LogServiceClient is the client API for LogService service.
@@ -28,6 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LogServiceClient interface {
 	SendLog(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error)
+	BatchSendLogs(ctx context.Context, in *BatchLogRequest, opts ...grpc.CallOption) (*BatchLogResponse, error)
 	GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (*GetLogsResponse, error)
 }
 
@@ -49,6 +51,16 @@ func (c *logServiceClient) SendLog(ctx context.Context, in *LogRequest, opts ...
 	return out, nil
 }
 
+func (c *logServiceClient) BatchSendLogs(ctx context.Context, in *BatchLogRequest, opts ...grpc.CallOption) (*BatchLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchLogResponse)
+	err := c.cc.Invoke(ctx, LogService_BatchSendLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *logServiceClient) GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (*GetLogsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetLogsResponse)
@@ -64,6 +76,7 @@ func (c *logServiceClient) GetLogs(ctx context.Context, in *GetLogsRequest, opts
 // for forward compatibility.
 type LogServiceServer interface {
 	SendLog(context.Context, *LogRequest) (*LogResponse, error)
+	BatchSendLogs(context.Context, *BatchLogRequest) (*BatchLogResponse, error)
 	GetLogs(context.Context, *GetLogsRequest) (*GetLogsResponse, error)
 	mustEmbedUnimplementedLogServiceServer()
 }
@@ -77,6 +90,9 @@ type UnimplementedLogServiceServer struct{}
 
 func (UnimplementedLogServiceServer) SendLog(context.Context, *LogRequest) (*LogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SendLog not implemented")
+}
+func (UnimplementedLogServiceServer) BatchSendLogs(context.Context, *BatchLogRequest) (*BatchLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchSendLogs not implemented")
 }
 func (UnimplementedLogServiceServer) GetLogs(context.Context, *GetLogsRequest) (*GetLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLogs not implemented")
@@ -120,6 +136,24 @@ func _LogService_SendLog_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LogService_BatchSendLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LogServiceServer).BatchSendLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LogService_BatchSendLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LogServiceServer).BatchSendLogs(ctx, req.(*BatchLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LogService_GetLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetLogsRequest)
 	if err := dec(in); err != nil {
@@ -148,6 +182,10 @@ var LogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendLog",
 			Handler:    _LogService_SendLog_Handler,
+		},
+		{
+			MethodName: "BatchSendLogs",
+			Handler:    _LogService_BatchSendLogs_Handler,
 		},
 		{
 			MethodName: "GetLogs",

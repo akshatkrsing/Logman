@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 
 package logman;
@@ -7,6 +6,7 @@ option go_package = "github.com/akshatkrsing/logman/gen/logmanpb;logmanpb";
 
 service LogService {
   rpc SendLog (LogRequest) returns (LogResponse);
+  rpc BatchSendLogs (BatchLogRequest) returns (BatchLogResponse);
   rpc GetLogs (GetLogsRequest) returns (GetLogsResponse);
 }
 
@@ -23,6 +23,16 @@ message LogResponse {
   bool success = 1;
   string message = 2;
   string log_id = 3;
+}
+
+message BatchLogRequest {
+  repeated LogRequest logs = 1;
+}
+
+message BatchLogResponse {
+  repeated LogResponse results = 1;
+  int32 accepted_count = 2;
+  int32 rejected_count = 3;
 }
 
 message GetLogsRequest {

@@ -165,6 +165,110 @@ func (x *LogResponse) GetLogId() string {
 	return ""
 }
 
+type BatchLogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Logs          []*LogRequest          `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchLogRequest) Reset() {
+	*x = BatchLogRequest{}
+	mi := &file_proto_logman_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchLogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchLogRequest) ProtoMessage() {}
+
+func (x *BatchLogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_logman_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchLogRequest.ProtoReflect.Descriptor instead.
+func (*BatchLogRequest) Descriptor() ([]byte, []int) {
+	return file_proto_logman_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BatchLogRequest) GetLogs() []*LogRequest {
+	if x != nil {
+		return x.Logs
+	}
+	return nil
+}
+
+type BatchLogResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*LogResponse         `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	AcceptedCount int32                  `protobuf:"varint,2,opt,name=accepted_count,json=acceptedCount,proto3" json:"accepted_count,omitempty"`
+	RejectedCount int32                  `protobuf:"varint,3,opt,name=rejected_count,json=rejectedCount,proto3" json:"rejected_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchLogResponse) Reset() {
+	*x = BatchLogResponse{}
+	mi := &file_proto_logman_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchLogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchLogResponse) ProtoMessage() {}
+
+func (x *BatchLogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_logman_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchLogResponse.ProtoReflect.Descriptor instead.
+func (*BatchLogResponse) Descriptor() ([]byte, []int) {
+	return file_proto_logman_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BatchLogResponse) GetResults() []*LogResponse {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *BatchLogResponse) GetAcceptedCount() int32 {
+	if x != nil {
+		return x.AcceptedCount
+	}
+	return 0
+}
+
+func (x *BatchLogResponse) GetRejectedCount() int32 {
+	if x != nil {
+		return x.RejectedCount
+	}
+	return 0
+}
+
 type GetLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Deprecated: Marked as deprecated in proto/logman.proto.
@@ -185,7 +289,7 @@ type GetLogsRequest struct {
 
 func (x *GetLogsRequest) Reset() {
 	*x = GetLogsRequest{}
-	mi := &file_proto_logman_proto_msgTypes[2]
+	mi := &file_proto_logman_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -197,7 +301,7 @@ func (x *GetLogsRequest) String() string {
 func (*GetLogsRequest) ProtoMessage() {}
 
 func (x *GetLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_logman_proto_msgTypes[2]
+	mi := &file_proto_logman_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -210,7 +314,7 @@ func (x *GetLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLogsRequest.ProtoReflect.Descriptor instead.
 func (*GetLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_logman_proto_rawDescGZIP(), []int{2}
+	return file_proto_logman_proto_rawDescGZIP(), []int{4}
 }
 
 // Deprecated: Marked as deprecated in proto/logman.proto.
@@ -306,7 +410,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_proto_logman_proto_msgTypes[3]
+	mi := &file_proto_logman_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +422,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_logman_proto_msgTypes[3]
+	mi := &file_proto_logman_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,7 +435,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_proto_logman_proto_rawDescGZIP(), []int{3}
+	return file_proto_logman_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LogEntry) GetLogId() string {
@@ -396,7 +500,7 @@ type GetLogsResponse struct {
 
 func (x *GetLogsResponse) Reset() {
 	*x = GetLogsResponse{}
-	mi := &file_proto_logman_proto_msgTypes[4]
+	mi := &file_proto_logman_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -408,7 +512,7 @@ func (x *GetLogsResponse) String() string {
 func (*GetLogsResponse) ProtoMessage() {}
 
 func (x *GetLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_logman_proto_msgTypes[4]
+	mi := &file_proto_logman_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +525,7 @@ func (x *GetLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLogsResponse.ProtoReflect.Descriptor instead.
 func (*GetLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_logman_proto_rawDescGZIP(), []int{4}
+	return file_proto_logman_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetLogsResponse) GetLogs() []*LogEntry {
@@ -479,7 +583,13 @@ const file_proto_logman_proto_rawDesc = "" +
 	"\vLogResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x15\n" +
-	"\x06log_id\x18\x03 \x01(\tR\x05logId\"\xbf\x03\n" +
+	"\x06log_id\x18\x03 \x01(\tR\x05logId\"9\n" +
+	"\x0fBatchLogRequest\x12&\n" +
+	"\x04logs\x18\x01 \x03(\v2\x12.logman.LogRequestR\x04logs\"\x8f\x01\n" +
+	"\x10BatchLogResponse\x12-\n" +
+	"\aresults\x18\x01 \x03(\v2\x13.logman.LogResponseR\aresults\x12%\n" +
+	"\x0eaccepted_count\x18\x02 \x01(\x05R\racceptedCount\x12%\n" +
+	"\x0erejected_count\x18\x03 \x01(\x05R\rrejectedCount\"\xbf\x03\n" +
 	"\x0eGetLogsRequest\x12\x18\n" +
 	"\x05limit\x18\x01 \x01(\x05B\x02\x18\x01R\x05limit\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12!\n" +
@@ -517,10 +627,11 @@ const file_proto_logman_proto_rawDesc = "" +
 	"\vpage_number\x18\x03 \x01(\x05R\n" +
 	"pageNumber\x12\x1b\n" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x19\n" +
-	"\bhas_more\x18\x05 \x01(\bR\ahasMore2|\n" +
+	"\bhas_more\x18\x05 \x01(\bR\ahasMore2\xc0\x01\n" +
 	"\n" +
 	"LogService\x122\n" +
-	"\aSendLog\x12\x12.logman.LogRequest\x1a\x13.logman.LogResponse\x12:\n" +
+	"\aSendLog\x12\x12.logman.LogRequest\x1a\x13.logman.LogResponse\x12B\n" +
+	"\rBatchSendLogs\x12\x17.logman.BatchLogRequest\x1a\x18.logman.BatchLogResponse\x12:\n" +
 	"\aGetLogs\x12\x16.logman.GetLogsRequest\x1a\x17.logman.GetLogsResponseB6Z4github.com/akshatkrsing/logman/gen/logmanpb;logmanpbb\x06proto3"
 
 var (
@@ -535,31 +646,37 @@ func file_proto_logman_proto_rawDescGZIP() []byte {
 	return file_proto_logman_proto_rawDescData
 }
 
-var file_proto_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_logman_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_logman_proto_goTypes = []any{
-	(*LogRequest)(nil),      // 0: logman.LogRequest
-	(*LogResponse)(nil),     // 1: logman.LogResponse
-	(*GetLogsRequest)(nil),  // 2: logman.GetLogsRequest
-	(*LogEntry)(nil),        // 3: logman.LogEntry
-	(*GetLogsResponse)(nil), // 4: logman.GetLogsResponse
-	nil,                     // 5: logman.LogRequest.MetadataEntry
-	nil,                     // 6: logman.GetLogsRequest.MetadataEntry
-	nil,                     // 7: logman.LogEntry.MetadataEntry
+	(*LogRequest)(nil),       // 0: logman.LogRequest
+	(*LogResponse)(nil),      // 1: logman.LogResponse
+	(*BatchLogRequest)(nil),  // 2: logman.BatchLogRequest
+	(*BatchLogResponse)(nil), // 3: logman.BatchLogResponse
+	(*GetLogsRequest)(nil),   // 4: logman.GetLogsRequest
+	(*LogEntry)(nil),         // 5: logman.LogEntry
+	(*GetLogsResponse)(nil),  // 6: logman.GetLogsResponse
+	nil,                      // 7: logman.LogRequest.MetadataEntry
+	nil,                      // 8: logman.GetLogsRequest.MetadataEntry
+	nil,                      // 9: logman.LogEntry.MetadataEntry
 }
 var file_proto_logman_proto_depIdxs = []int32{
-	5, // 0: logman.LogRequest.metadata:type_name -> logman.LogRequest.MetadataEntry
-	6, // 1: logman.GetLogsRequest.metadata:type_name -> logman.GetLogsRequest.MetadataEntry
-	7, // 2: logman.LogEntry.metadata:type_name -> logman.LogEntry.MetadataEntry
-	3, // 3: logman.GetLogsResponse.logs:type_name -> logman.LogEntry
-	0, // 4: logman.LogService.SendLog:input_type -> logman.LogRequest
-	2, // 5: logman.LogService.GetLogs:input_type -> logman.GetLogsRequest
-	1, // 6: logman.LogService.SendLog:output_type -> logman.LogResponse
-	4, // 7: logman.LogService.GetLogs:output_type -> logman.GetLogsResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	7, // 0: logman.LogRequest.metadata:type_name -> logman.LogRequest.MetadataEntry
+	0, // 1: logman.BatchLogRequest.logs:type_name -> logman.LogRequest
+	1, // 2: logman.BatchLogResponse.results:type_name -> logman.LogResponse
+	8, // 3: logman.GetLogsRequest.metadata:type_name -> logman.GetLogsRequest.MetadataEntry
+	9, // 4: logman.LogEntry.metadata:type_name -> logman.LogEntry.MetadataEntry
+	5, // 5: logman.GetLogsResponse.logs:type_name -> logman.LogEntry
+	0, // 6: logman.LogService.SendLog:input_type -> logman.LogRequest
+	2, // 7: logman.LogService.BatchSendLogs:input_type -> logman.BatchLogRequest
+	4, // 8: logman.LogService.GetLogs:input_type -> logman.GetLogsRequest
+	1, // 9: logman.LogService.SendLog:output_type -> logman.LogResponse
+	3, // 10: logman.LogService.BatchSendLogs:output_type -> logman.BatchLogResponse
+	6, // 11: logman.LogService.GetLogs:output_type -> logman.GetLogsResponse
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_logman_proto_init() }
@@ -573,7 +690,7 @@ func file_proto_logman_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_logman_proto_rawDesc), len(file_proto_logman_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"sort"
+	"strings"
 	"sync"
 
 	hashiraft "github.com/hashicorp/raft"
@@ -19,17 +21,42 @@ type LogEntry struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
+type MetadataKey struct {
+	Key   string
+	Value string
+}
+
+// LogQuery contains exact-match filters used by the FSM indexes.
+type LogQuery struct {
+	RequestID   string
+	Level       string
+	Levels      []string
+	ServiceName string
+	Metadata    map[string]string
+}
+
 type FSM struct {
 	mu     sync.RWMutex
 	logs   []LogEntry
 	nodeID string
+
+	requestIDIndex map[string]map[int]struct{}
+	levelIndex     map[string]map[int]struct{}
+	serviceIndex   map[string]map[int]struct{}
+	metadataIndex  map[MetadataKey]map[int]struct{}
 }
 
 func NewFSM(nodeID string) *FSM {
-	return &FSM{
-		logs:   make([]LogEntry, 0),
-		nodeID: nodeID,
+	fsm := &FSM{
+		logs:           make([]LogEntry, 0),
+		nodeID:         nodeID,
+		requestIDIndex: make(map[string]map[int]struct{}),
+		levelIndex:     make(map[string]map[int]struct{}),
+		serviceIndex:   make(map[string]map[int]struct{}),
+		metadataIndex:  make(map[MetadataKey]map[int]struct{}),
 	}
+
+	return fsm
 }
 
 func cloneLogEntry(entry LogEntry) LogEntry {
@@ -56,6 +83,46 @@ func cloneLogs(logs []LogEntry) []LogEntry {
 	return result
 }
 
+func addToIndex[K comparable](index map[K]map[int]struct{}, key K, position int) {
+	if _, exists := index[key]; !exists {
+		index[key] = make(map[int]struct{})
+	}
+
+	index[key][position] = struct{}{}
+}
+
+func (f *FSM) indexEntryLocked(entry LogEntry, position int) {
+	if entry.RequestID != "" {
+		addToIndex(f.requestIDIndex, entry.RequestID, position)
+	}
+
+	if entry.Level != "" {
+		addToIndex(f.levelIndex, strings.ToUpper(strings.TrimSpace(entry.Level)), position)
+	}
+
+	if entry.ServiceName != "" {
+		addToIndex(f.serviceIndex, strings.ToLower(strings.TrimSpace(entry.ServiceName)), position)
+	}
+
+	for key, value := range entry.Metadata {
+		addToIndex(f.metadataIndex, MetadataKey{
+			Key:   key,
+			Value: value,
+		}, position)
+	}
+}
+
+func (f *FSM) rebuildIndexesLocked() {
+	f.requestIDIndex = make(map[string]map[int]struct{})
+	f.levelIndex = make(map[string]map[int]struct{})
+	f.serviceIndex = make(map[string]map[int]struct{})
+	f.metadataIndex = make(map[MetadataKey]map[int]struct{})
+
+	for position, entry := range f.logs {
+		f.indexEntryLocked(entry, position)
+	}
+}
+
 func (f *FSM) Apply(logEntry *hashiraft.Log) interface{} {
 	var entry LogEntry
 
@@ -64,7 +131,11 @@ func (f *FSM) Apply(logEntry *hashiraft.Log) interface{} {
 	}
 
 	f.mu.Lock()
+
+	position := len(f.logs)
 	f.logs = append(f.logs, entry)
+	f.indexEntryLocked(entry, position)
+
 	f.mu.Unlock()
 
 	log.Printf(
@@ -98,6 +169,7 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	defer f.mu.Unlock()
 
 	f.logs = cloneLogs(logs)
+	f.rebuildIndexesLocked()
 
 	return nil
 }
@@ -107,6 +179,97 @@ func (f *FSM) GetLogs() []LogEntry {
 	defer f.mu.RUnlock()
 
 	return cloneLogs(f.logs)
+}
+
+// SearchLogs uses indexes to reduce the candidate set.
+// Results retain their original Raft application order.
+
+func (f *FSM) SearchLogs(query LogQuery) []LogEntry {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	indexSets := make([]map[int]struct{}, 0)
+
+	if query.RequestID != "" {
+		indexSets = append(indexSets, f.requestIDIndex[query.RequestID])
+	}
+
+	if query.Level != "" {
+		indexSets = append(indexSets,
+			f.levelIndex[strings.ToUpper(strings.TrimSpace(query.Level))])
+	}
+
+	if len(query.Levels) > 0 {
+		levelPositions := make(map[int]struct{})
+
+		for _, level := range query.Levels {
+			normalized := strings.ToUpper(strings.TrimSpace(level))
+			if normalized == "" {
+				continue
+			}
+
+			for position := range f.levelIndex[normalized] {
+				levelPositions[position] = struct{}{}
+			}
+		}
+
+		indexSets = append(indexSets, levelPositions)
+	}
+
+	if query.ServiceName != "" {
+		indexSets = append(indexSets,
+			f.serviceIndex[strings.ToLower(strings.TrimSpace(query.ServiceName))])
+	}
+
+	for key, value := range query.Metadata {
+		indexSets = append(indexSets, f.metadataIndex[MetadataKey{
+			Key:   key,
+			Value: value,
+		}])
+	}
+
+	if len(indexSets) == 0 {
+		return cloneLogs(f.logs)
+	}
+
+	for _, positions := range indexSets {
+		if len(positions) == 0 {
+			return []LogEntry{}
+		}
+	}
+
+	sort.Slice(indexSets, func(i, j int) bool {
+		return len(indexSets[i]) < len(indexSets[j])
+	})
+
+	candidates := indexSets[0]
+	matchedPositions := make([]int, 0, len(candidates))
+
+	for position := range candidates {
+		matches := true
+
+		for _, positions := range indexSets[1:] {
+			if _, exists := positions[position]; !exists {
+				matches = false
+				break
+			}
+		}
+
+		if matches {
+			matchedPositions = append(matchedPositions, position)
+		}
+	}
+
+	// Restore original Raft application order.
+	sort.Ints(matchedPositions)
+
+	result := make([]LogEntry, 0, len(matchedPositions))
+
+	for _, position := range matchedPositions {
+		result = append(result, cloneLogEntry(f.logs[position]))
+	}
+
+	return result
 }
 
 type Snapshot struct {

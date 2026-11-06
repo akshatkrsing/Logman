@@ -1,8 +1,10 @@
-
-node:
-  id: node2
-  grpc_port: "50052"
-  raft_address: "127.0.0.1:6002"
-  data_dir: "./data/node2"
-  bootstrap: false
-  leader_address: "127.0.0.1:6001"
+node_id: "node2"
+raft_bind_address: "127.0.0.1:6002"
+grpc_address: "127.0.0.1:50052"
+data_dir: "./data/node2"
+bootstrap: false
+join_address: "127.0.0.1:6001"
+snapshot_interval: "30s"
+snapshot_threshold: 8192
+max_log_size: 1048576
+max_batch_size: 1000
